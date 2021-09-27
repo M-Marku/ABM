@@ -47,6 +47,8 @@ globals [
   nlc-sensing-distance
   macrophage-sensing-distance
   adherence-init-std
+  division-time
+  division-init-std
 
 
 
@@ -79,6 +81,7 @@ patches-own [
 NeedSignalCancerCells-own[
   Life ;; inverse proxy for accumulated apoptotic factors from intrinsic and extrinsic apoptosis pathways
   ;; the lower the Life, the more apoptotic the cell is. When reaching 0, the cell enters late apoptosis which is irreversible.
+  CllDivision ;; time spent after cell seedoing -> approaching to cell division
 ]
 
 LateApoCancerCells-own[
@@ -167,7 +170,7 @@ to setup-Globals
   set apoptosis-threshold 0
   set death-threshold -500
   set density 55
-  set nb-cancer-cells-init 5000
+  set nb-cancer-cells-init 2500
   set prop-monocytes-init 1.6
 
   ; optimized
@@ -176,7 +179,7 @@ to setup-Globals
   set layers-around-NLC 1
   set alpha 49
   set mono-phago-eff 1
-  set NLC-phago-eff 4
+  set NLC-phago-eff 10
   set M2-phago-eff 10
   set M2-kill-eff 5
   set cll-sensing-distance 3
@@ -188,6 +191,8 @@ to setup-Globals
   set signal-init-std 10
   set adherence-time 55
   set adherence-init-std 3
+  set division-time 120
+  set division-init-std 30
 end
 
 to setup-World
@@ -257,6 +262,7 @@ to setup-NeedSignalCancerCells
     let my_alpha 1
     let my_lambda 1 / 198
     set Life random-gamma my_alpha my_lambda
+    set CllDivision random-normal (-30) (division-init-std)
     set color red
     if Life <= 0
     [
@@ -516,14 +522,17 @@ to update-chemicals
   ;; NeedSignalCancerCells actions
   ask NeedSignalCancerCells
   [
+    set CllDivision CllDivision + 1
+    
     ifelse ( [Chemical_A] of patch-here >= 1)
     [
       set Life Life + alpha;
       set Chemical_A Chemical_A - 1
     ]
     [ set Life Life - 1 ]
+    
+   
   ]
-
   ;; LateApoCancerCells actions
   ask LateApoCancerCells
   [
@@ -568,6 +577,16 @@ to update-breeds
   ;; NeedSignalCancerCells
   ask NeedSignalCancerCells
   [
+    if ( CllDivision > division-time) and (random 100 < 1)
+    [
+      hatch 1 [move cll-sensing-distance nobody]
+      set CllDivision 0
+      set Life Life / 10
+      ;;set breed NeedSignalCancerCell 1
+      set color blue
+      
+    ]
+    
     if ( Life <= apoptosis-threshold )
     [
       ;; change from NeedSignalCancerCell to LateApoCancerCell
@@ -575,6 +594,7 @@ to update-breeds
       set color yellow
       set shape "default"
     ]
+    
   ]
 
   ;; LateApoCancerCells
